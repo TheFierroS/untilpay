@@ -3,6 +3,7 @@ package io.github.thefierros.untilpay.core
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -20,9 +21,16 @@ class BudgetEngineTest {
         spentSinceStatement = Money.lira(200),
     )
 
+    /** Runs the engine and fails with a clear message if no limit was calculated. */
+    private fun BudgetInput.calculated(): BudgetResult {
+        val outcome = BudgetEngine.calculate(this)
+        check(outcome is BudgetOutcome.Calculated) { "Expected a calculated budget, got $outcome" }
+        return outcome.result
+    }
+
     @Test
     fun `without a card, cash is split across the remaining days`() {
-        val result = BudgetEngine.calculate(BudgetInput(today, payday, cash = Money.lira(4800)))
+        val result = BudgetInput(today, payday, cash = Money.lira(4800)).calculated()
 
         assertEquals(16L, result.daysLeft)
         assertEquals(Money.lira(300), result.dailyLimit)
@@ -30,9 +38,7 @@ class BudgetEngineTest {
 
     @Test
     fun `planned payment and new card spending are set aside`() {
-        val result = BudgetEngine.calculate(
-            BudgetInput(today, payday, cash = Money.lira(4800), card = card),
-        )
+        val result = BudgetInput(today, payday, cash = Money.lira(4800), card = card).calculated()
 
         assertEquals(Money.lira(3600), result.spendable)
         assertEquals(Money.lira(225), result.dailyLimit)
@@ -41,6 +47,7 @@ class BudgetEngineTest {
                 total = Money.lira(3200),
                 deferred = Money.lira(2000),
                 belowMinimum = false,
+                overdue = Money.ZERO,
             ),
             result.debt,
         )
@@ -50,9 +57,7 @@ class BudgetEngineTest {
     fun `paying part of the plan does not change the daily limit`() {
         // After paying 1000, cash drops by 1000 and nothing is left to reserve.
         val paid = card.copy(paidSoFar = Money.lira(1000))
-        val result = BudgetEngine.calculate(
-            BudgetInput(today, payday, cash = Money.lira(3800), card = paid),
-        )
+        val result = BudgetInput(today, payday, cash = Money.lira(3800), card = paid).calculated()
 
         assertEquals(Money.ZERO, result.reserved.cardPayment)
         assertEquals(Money.lira(225), result.dailyLimit)
@@ -60,48 +65,114 @@ class BudgetEngineTest {
 
     @Test
     fun `a plan below the minimum payment is flagged`() {
-        val result = BudgetEngine.calculate(
-            BudgetInput(
-                today,
-                payday,
-                cash = Money.lira(4800),
-                card = card.copy(plannedPayment = Money.lira(400)),
-            ),
-        )
+        val lowPlan = card.copy(plannedPayment = Money.lira(400))
+        val result = BudgetInput(
+            today,
+            payday,
+            cash = Money.lira(4800),
+            card = lowPlan,
+        ).calculated()
 
-        assertTrue(result.debt!!.belowMinimum)
+        assertTrue(checkNotNull(result.debt).belowMinimum)
     }
 
     @Test
     fun `payment due after payday is not reserved yet`() {
-        val result = BudgetEngine.calculate(
-            BudgetInput(
-                today,
-                payday,
-                cash = Money.lira(4800),
-                card = card.copy(dueDate = LocalDate.of(2026, 11, 5)),
-            ),
-        )
+        val laterDue = card.copy(dueDate = LocalDate.of(2026, 11, 5))
+        val result = BudgetInput(
+            today,
+            payday,
+            cash = Money.lira(4800),
+            card = laterDue,
+        ).calculated()
 
         assertEquals(Money.ZERO, result.reserved.cardPayment)
-        assertFalse(result.debt!!.belowMinimum)
+        assertFalse(checkNotNull(result.debt).belowMinimum)
     }
 
     @Test
     fun `daily limit never goes negative`() {
-        val result = BudgetEngine.calculate(
-            BudgetInput(today, payday, cash = Money.lira(100), fixedBeforeIncome = Money.lira(500)),
-        )
+        val result = BudgetInput(
+            today,
+            payday,
+            cash = Money.lira(100),
+            fixedBeforeIncome = Money.lira(500),
+        ).calculated()
 
         assertEquals(Money.lira(-400), result.spendable)
         assertEquals(Money.ZERO, result.dailyLimit)
     }
 
     @Test
-    fun `on payday itself there is still one day to divide by`() {
-        val result = BudgetEngine.calculate(BudgetInput(payday, payday, cash = Money.lira(500)))
+    fun `on payday the next income date has to be updated`() {
+        val outcome = BudgetEngine.calculate(BudgetInput(payday, payday, cash = Money.lira(500)))
 
-        assertEquals(1L, result.daysLeft)
-        assertEquals(Money.lira(500), result.dailyLimit)
+        assertEquals(BudgetOutcome.NextIncomeDateReached(payday), outcome)
+    }
+
+    @Test
+    fun `a next income date in the past has to be updated`() {
+        val afterPayday = LocalDate.of(2026, 11, 3)
+        val outcome = BudgetEngine.calculate(
+            BudgetInput(afterPayday, payday, cash = Money.lira(500)),
+        )
+
+        assertEquals(BudgetOutcome.NextIncomeDateReached(payday), outcome)
+    }
+
+    @Test
+    fun `an unpaid minimum after the due date is reserved and flagged as overdue`() {
+        val afterDueDate = LocalDate.of(2026, 10, 30)
+        val partlyPaid = card.copy(paidSoFar = Money.lira(200))
+        val result = BudgetInput(afterDueDate, payday, cash = Money.lira(4800), card = partlyPaid)
+            .calculated()
+        val debt = checkNotNull(result.debt)
+
+        // 600 minimum - 200 paid = 400 overdue; 4800 - 400 - 200 new spending = 4200 over 2 days.
+        assertEquals(Money.lira(400), result.reserved.cardPayment)
+        assertEquals(Money.lira(400), debt.overdue)
+        assertTrue(debt.isOverdue)
+        assertEquals(Money.lira(2100), result.dailyLimit)
+    }
+
+    @Test
+    fun `nothing is reserved after the due date once the minimum is paid`() {
+        val afterDueDate = LocalDate.of(2026, 10, 30)
+        val minimumPaid = card.copy(paidSoFar = Money.lira(600))
+        val result = BudgetInput(afterDueDate, payday, cash = Money.lira(4800), card = minimumPaid)
+            .calculated()
+
+        assertEquals(Money.ZERO, result.reserved.cardPayment)
+        assertFalse(checkNotNull(result.debt).isOverdue)
+    }
+
+    @Test
+    fun `a payment due today is reserved but not yet overdue`() {
+        val result = BudgetInput(card.dueDate, payday, cash = Money.lira(4800), card = card)
+            .calculated()
+
+        assertEquals(Money.lira(1000), result.reserved.cardPayment)
+        assertFalse(checkNotNull(result.debt).isOverdue)
+    }
+
+    @Test
+    fun `negative card amounts are rejected`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            card.copy(paidSoFar = Money.lira(-1))
+        }
+    }
+
+    @Test
+    fun `a minimum payment above the statement balance is rejected`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            card.copy(minimumPayment = Money.lira(3001))
+        }
+    }
+
+    @Test
+    fun `negative fixed costs are rejected`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            BudgetInput(today, payday, cash = Money.lira(100), fixedBeforeIncome = Money.lira(-5))
+        }
     }
 }
