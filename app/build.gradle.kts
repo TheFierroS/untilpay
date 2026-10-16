@@ -34,6 +34,21 @@ android {
     buildFeatures {
         compose = true
     }
+    lint {
+        // Zero-warning policy: any lint warning fails the build.
+        warningsAsErrors = true
+        abortOnError = true
+
+        // These checks depend on the current date rather than the code,
+        // so they would turn CI red without any change on our side.
+        // Dependency updates are handled by Dependabot instead.
+        disable += setOf(
+            "GradleDependency",
+            "NewerVersionAvailable",
+            "AndroidGradlePluginVersion",
+            "OldTargetApi",
+        )
+    }
 }
 
 dependencies {

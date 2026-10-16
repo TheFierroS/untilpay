@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Unit tests and debug build
+    name: Checks and build
     runs-on: ubuntu-latest
 
     steps:
@@ -22,8 +22,14 @@ jobs:
           java-version: 25
           cache: gradle
 
+      - name: Check formatting
+        run: ./gradlew spotlessCheck
+
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest
+
+      - name: Run Android Lint
+        run: ./gradlew lintDebug
 
       - name: Build debug APK
         run: ./gradlew assembleDebug
