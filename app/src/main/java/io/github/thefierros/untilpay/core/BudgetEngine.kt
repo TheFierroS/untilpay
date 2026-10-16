@@ -28,17 +28,9 @@ data class BudgetInput(
     val fixedBeforeIncome: Money = Money.ZERO,
 )
 
-data class Reserved(
-    val cardPayment: Money,
-    val newCardSpending: Money,
-    val fixed: Money,
-)
+data class Reserved(val cardPayment: Money, val newCardSpending: Money, val fixed: Money)
 
-data class DebtSummary(
-    val total: Money,
-    val deferred: Money,
-    val belowMinimum: Boolean,
-)
+data class DebtSummary(val total: Money, val deferred: Money, val belowMinimum: Boolean)
 
 data class BudgetResult(
     val daysLeft: Long,
