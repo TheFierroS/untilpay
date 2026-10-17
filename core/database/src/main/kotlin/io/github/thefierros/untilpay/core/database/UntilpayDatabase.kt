@@ -4,8 +4,10 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import io.github.thefierros.untilpay.core.database.dao.AccountDao
 import io.github.thefierros.untilpay.core.database.dao.BalanceSnapshotDao
+import io.github.thefierros.untilpay.core.database.dao.CreditCardDao
 import io.github.thefierros.untilpay.core.database.model.AccountEntity
 import io.github.thefierros.untilpay.core.database.model.BalanceSnapshotEntity
+import io.github.thefierros.untilpay.core.database.model.CreditCardEntity
 
 /**
  * The app's database.
@@ -17,6 +19,7 @@ import io.github.thefierros.untilpay.core.database.model.BalanceSnapshotEntity
     entities = [
         AccountEntity::class,
         BalanceSnapshotEntity::class,
+        CreditCardEntity::class,
     ],
     version = 1,
     exportSchema = true,
@@ -26,4 +29,6 @@ abstract class UntilpayDatabase : RoomDatabase() {
     abstract fun accountDao(): AccountDao
 
     abstract fun balanceSnapshotDao(): BalanceSnapshotDao
+
+    abstract fun creditCardDao(): CreditCardDao
 }
