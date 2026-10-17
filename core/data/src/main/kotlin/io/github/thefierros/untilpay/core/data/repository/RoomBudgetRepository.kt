@@ -4,6 +4,7 @@ import io.github.thefierros.untilpay.core.data.mapper.asInstallmentPlan
 import io.github.thefierros.untilpay.core.data.mapper.asModel
 import io.github.thefierros.untilpay.core.data.mapper.effectOn
 import io.github.thefierros.untilpay.core.data.mapper.fromRow
+import io.github.thefierros.untilpay.core.database.TableChanges
 import io.github.thefierros.untilpay.core.database.dao.AccountDao
 import io.github.thefierros.untilpay.core.database.dao.BalanceSnapshotDao
 import io.github.thefierros.untilpay.core.database.dao.CardStatementDao
@@ -23,7 +24,9 @@ import java.time.Clock
 import java.time.LocalDate
 import java.util.Currency
 import javax.inject.Inject
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
 internal class RoomBudgetRepository @Inject constructor(
     private val accountDao: AccountDao,
@@ -32,6 +35,7 @@ internal class RoomBudgetRepository @Inject constructor(
     private val cardStatementDao: CardStatementDao,
     private val incomeSourceDao: IncomeSourceDao,
     private val transactionDao: TransactionDao,
+    private val tableChanges: TableChanges,
     private val clock: Clock,
 ) : BudgetRepository {
 
@@ -60,6 +64,13 @@ internal class RoomBudgetRepository @Inject constructor(
             protectedAmount = protectedAmount,
         )
     }
+
+    override fun observeInput(
+        currency: Currency,
+        fixedCosts: Money,
+        protectedAmount: Money,
+    ): Flow<BudgetInput> = tableChanges.observe(*BUDGET_TABLES)
+        .map { loadInput(currency, fixedCosts, protectedAmount) }
 
     /** The latest snapshot plus everything that happened after it; zero if there is none. */
     private suspend fun balanceOf(account: Account, snapshot: BalanceSnapshotEntity?): Money {
@@ -112,4 +123,17 @@ internal class RoomBudgetRepository @Inject constructor(
      */
     private fun nextDueDate(card: CreditCard, today: LocalDate): LocalDate =
         IncomeSchedule.Monthly(card.dueDay).nextAfter(today.minusDays(1))
+
+    private companion object {
+
+        /** Every table the budget input is read from. */
+        val BUDGET_TABLES = arrayOf(
+            "accounts",
+            "balance_snapshots",
+            "credit_cards",
+            "card_statements",
+            "income_sources",
+            "transactions",
+        )
+    }
 }

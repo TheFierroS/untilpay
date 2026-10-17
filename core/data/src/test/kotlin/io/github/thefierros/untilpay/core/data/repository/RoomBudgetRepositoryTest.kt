@@ -3,6 +3,7 @@ package io.github.thefierros.untilpay.core.data.repository
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import io.github.thefierros.untilpay.core.database.TableChanges
 import io.github.thefierros.untilpay.core.database.UntilpayDatabase
 import io.github.thefierros.untilpay.core.database.model.AccountEntity
 import io.github.thefierros.untilpay.core.database.model.BalanceSnapshotEntity
@@ -10,6 +11,7 @@ import io.github.thefierros.untilpay.core.database.model.CardStatementEntity
 import io.github.thefierros.untilpay.core.database.model.CreditCardEntity
 import io.github.thefierros.untilpay.core.database.model.IncomeSourceEntity
 import io.github.thefierros.untilpay.core.database.model.TransactionEntity
+import io.github.thefierros.untilpay.core.domain.BudgetInput
 import io.github.thefierros.untilpay.core.domain.InstallmentPlan
 import io.github.thefierros.untilpay.core.model.IncomeSchedule
 import io.github.thefierros.untilpay.core.model.Money
@@ -17,6 +19,8 @@ import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Currency
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -47,6 +51,7 @@ class RoomBudgetRepositoryTest {
             cardStatementDao = database.cardStatementDao(),
             incomeSourceDao = database.incomeSourceDao(),
             transactionDao = database.transactionDao(),
+            tableChanges = TableChanges(database),
             clock = Clock.fixed(today.atTime(12, 0).atZone(zone).toInstant(), zone),
         )
     }
@@ -275,5 +280,34 @@ class RoomBudgetRepositoryTest {
         val income = input.incomeSources.single()
         assertEquals(tl(5_000_00), income.expectedAmount)
         assertEquals(IncomeSchedule.Monthly(15), income.schedule)
+    }
+
+    @Test
+    fun `the budget input is read again when the money changes`() = runTest {
+        val inputs = Channel<BudgetInput>(Channel.UNLIMITED)
+        val collector = launch {
+            repository.observeInput(lira, fixedCosts = tl(0), protectedAmount = tl(0))
+                .collect { inputs.send(it) }
+        }
+        assertEquals(emptyList<Any>(), inputs.receive().accounts)
+
+        val bank = account("Ziraat")
+        snapshot(bank, 100_00, at(october(17)))
+
+        val updated = inputs.receiveUntil { input ->
+            input.accounts.singleOrNull()?.balance == tl(100_00)
+        }
+        assertEquals(listOf("Ziraat"), updated.accounts.map { it.account.name })
+        collector.cancel()
+    }
+
+    /** Waits for the first input that satisfies [condition]. */
+    private suspend fun Channel<BudgetInput>.receiveUntil(
+        condition: (BudgetInput) -> Boolean,
+    ): BudgetInput {
+        while (true) {
+            val input = receive()
+            if (condition(input)) return input
+        }
     }
 }
