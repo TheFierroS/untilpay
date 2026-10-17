@@ -18,11 +18,17 @@ kotlin {
 }
 
 dependencies {
+    compileOnly(libs.android.gradlePlugin)
     compileOnly(libs.kotlin.gradlePlugin)
 }
 
 gradlePlugin {
     plugins {
+        register("androidApplication") {
+            id = libs.plugins.untilpay.android.application.get().pluginId
+            implementationClass =
+                "io.github.thefierros.untilpay.buildlogic.AndroidApplicationConventionPlugin"
+        }
         register("jvmLibrary") {
             id = libs.plugins.untilpay.jvm.library.get().pluginId
             implementationClass =
