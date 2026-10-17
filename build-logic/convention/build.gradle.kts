@@ -18,11 +18,28 @@ kotlin {
 }
 
 dependencies {
+    compileOnly(libs.android.gradlePlugin)
     compileOnly(libs.kotlin.gradlePlugin)
+    compileOnly(libs.room.gradlePlugin)
 }
 
 gradlePlugin {
     plugins {
+        register("androidApplication") {
+            id = libs.plugins.untilpay.android.application.get().pluginId
+            implementationClass =
+                "io.github.thefierros.untilpay.buildlogic.AndroidApplicationConventionPlugin"
+        }
+        register("androidLibrary") {
+            id = libs.plugins.untilpay.android.library.get().pluginId
+            implementationClass =
+                "io.github.thefierros.untilpay.buildlogic.AndroidLibraryConventionPlugin"
+        }
+        register("androidRoom") {
+            id = libs.plugins.untilpay.android.room.get().pluginId
+            implementationClass =
+                "io.github.thefierros.untilpay.buildlogic.AndroidRoomConventionPlugin"
+        }
         register("jvmLibrary") {
             id = libs.plugins.untilpay.jvm.library.get().pluginId
             implementationClass =

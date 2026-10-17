@@ -1,19 +1,14 @@
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.untilpay.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.untilpay.android.hilt)
 }
 
 android {
     namespace = "io.github.thefierros.untilpay"
-    compileSdk {
-        version = release(37)
-    }
 
     defaultConfig {
         applicationId = "io.github.thefierros.untilpay"
-        minSdk = 26
-        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
@@ -28,27 +23,9 @@ android {
             }
         }
     }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
+
     buildFeatures {
         compose = true
-    }
-    lint {
-        // Zero-warning policy: any lint warning fails the build.
-        warningsAsErrors = true
-        abortOnError = true
-
-        // These checks depend on the current date rather than the code,
-        // so they would turn CI red without any change on our side.
-        // Dependency updates are handled by Dependabot instead.
-        disable += setOf(
-            "GradleDependency",
-            "NewerVersionAvailable",
-            "AndroidGradlePluginVersion",
-            "OldTargetApi",
-        )
     }
 }
 
