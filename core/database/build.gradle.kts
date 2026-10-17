@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.untilpay.android.library)
     alias(libs.plugins.untilpay.android.room)
+    alias(libs.plugins.untilpay.android.hilt)
 }
 
 android {
