@@ -7,8 +7,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.github.thefierros.untilpay.core.data.repository.AccountRepository
 import io.github.thefierros.untilpay.core.data.repository.BudgetRepository
+import io.github.thefierros.untilpay.core.data.repository.CardRepository
 import io.github.thefierros.untilpay.core.data.repository.RoomAccountRepository
 import io.github.thefierros.untilpay.core.data.repository.RoomBudgetRepository
+import io.github.thefierros.untilpay.core.data.repository.RoomCardRepository
 import java.time.Clock
 
 @Module
@@ -27,4 +29,7 @@ internal abstract class DataModule {
 
     @Binds
     abstract fun bindAccountRepository(repository: RoomAccountRepository): AccountRepository
+
+    @Binds
+    abstract fun bindCardRepository(repository: RoomCardRepository): CardRepository
 }
