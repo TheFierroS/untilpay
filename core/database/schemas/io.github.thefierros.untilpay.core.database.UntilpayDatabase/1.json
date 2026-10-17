@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "9c0aa82f6031ca0f9fd7f225e43b2e6b",
+    "identityHash": "07fe024556446ddec2dc57585acff899",
     "entities": [
       {
         "tableName": "accounts",
@@ -170,11 +170,90 @@
             "id"
           ]
         }
+      },
+      {
+        "tableName": "card_statements",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `card_id` INTEGER NOT NULL, `closing_date` INTEGER NOT NULL, `due_date` INTEGER NOT NULL, `balance_minor` INTEGER NOT NULL, `minimum_payment_minor` INTEGER NOT NULL, `planned_payment_minor` INTEGER NOT NULL, FOREIGN KEY(`card_id`) REFERENCES `credit_cards`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cardId",
+            "columnName": "card_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "closingDate",
+            "columnName": "closing_date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dueDate",
+            "columnName": "due_date",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "balanceMinor",
+            "columnName": "balance_minor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minimumPaymentMinor",
+            "columnName": "minimum_payment_minor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "plannedPaymentMinor",
+            "columnName": "planned_payment_minor",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_card_statements_card_id_closing_date",
+            "unique": true,
+            "columnNames": [
+              "card_id",
+              "closing_date"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_card_statements_card_id_closing_date` ON `${TABLE_NAME}` (`card_id`, `closing_date`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "credit_cards",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "card_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9c0aa82f6031ca0f9fd7f225e43b2e6b')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '07fe024556446ddec2dc57585acff899')"
     ]
   }
 }
