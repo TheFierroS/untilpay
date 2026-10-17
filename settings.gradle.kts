@@ -27,3 +27,4 @@ rootProject.name = "Untilpay"
 include(":app")
 include(":core:model")
 include(":core:domain")
+include(":core:database")
