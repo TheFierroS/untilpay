@@ -27,13 +27,15 @@ data class CardState(
     val paidSoFar: Money,
     /** Payment due date of the latest statement. */
     val dueDate: LocalDate,
-    /** Card spending made after the latest statement was cut. */
+    /** Single-payment card spending made after the latest statement was cut. */
     val spentSinceStatement: Money,
+    /** Installment purchases that still have installments to be billed. */
+    val installmentPlans: List<InstallmentPlan> = emptyList(),
 ) {
     init {
         val amounts =
             listOf(statementBalance, minimumPayment, plannedPayment, paidSoFar, spentSinceStatement)
-        for (amount in amounts) {
+        for (amount in amounts + installmentPlans.map { it.total }) {
             requireCurrency(amount, card.currency, "Amounts of ${card.name}")
         }
         requireNotNegative(statementBalance, "statementBalance")
@@ -45,6 +47,21 @@ data class CardState(
             "minimumPayment ($minimumPayment) cannot exceed statementBalance ($statementBalance)"
         }
     }
+
+    /** Everything the next statement will show: new spending and the next installments. */
+    val nextStatementCharges: Money
+        get() = installmentPlans
+            .mapNotNull { it.nextInstallment }
+            .fold(spentSinceStatement) { sum, amount -> sum + amount }
+
+    /** Installments that will appear on statements after the next one. */
+    val laterInstallments: Money
+        get() {
+            val zero = Money.zero(card.currency)
+            return installmentPlans
+                .map { it.unbilled - (it.nextInstallment ?: zero) }
+                .fold(zero) { sum, amount -> sum + amount }
+        }
 }
 
 /**

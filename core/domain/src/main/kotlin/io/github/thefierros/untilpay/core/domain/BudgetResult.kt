@@ -8,21 +8,29 @@ import java.time.LocalDate
 /** Everything set aside from the cash before the rest is split into days. */
 data class Reserved(
     val cardPayments: Money,
-    val newCardSpending: Money,
+    /**
+     * What the next card statements will show: new spending and the next
+     * installments. Set aside right away, so a card can't become an escape
+     * hatch from the daily limit.
+     */
+    val nextStatementCharges: Money,
     val fixedCosts: Money,
     val protectedAmount: Money,
 ) {
-    val total: Money get() = cardPayments + newCardSpending + fixedCosts + protectedAmount
+    val total: Money get() = cardPayments + nextStatementCharges + fixedCosts + protectedAmount
 }
 
 /** The debt situation of one card. */
 data class CardDebt(
     val cardId: CardId,
+    /** Everything owed on the card, including installments not billed yet. */
     val total: Money,
     val deferred: Money,
     val belowMinimum: Boolean,
     /** Unpaid part of the minimum payment once the due date has passed. */
     val overdue: Money,
+    /** Installments that will appear on statements after the next one. */
+    val laterInstallments: Money,
 ) {
     val isOverdue: Boolean get() = overdue.isPositive
 }

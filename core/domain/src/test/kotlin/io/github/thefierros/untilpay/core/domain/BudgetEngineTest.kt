@@ -105,6 +105,7 @@ class BudgetEngineTest {
                     deferred = lira(2000),
                     belowMinimum = false,
                     overdue = zero,
+                    laterInstallments = zero,
                 ),
             ),
             result.cardDebts,
@@ -246,7 +247,7 @@ class BudgetEngineTest {
 
         // Planned 1000 + 500, new spending 200 + 300; 4800 - 2000 = 2800 over 16 days.
         assertEquals(lira(1500), result.reserved.cardPayments)
-        assertEquals(lira(500), result.reserved.newCardSpending)
+        assertEquals(lira(500), result.reserved.nextStatementCharges)
         assertEquals(lira(175), result.dailyLimit)
         assertEquals(listOf(CardId(1), CardId(2)), result.cardDebts.map { it.cardId })
     }
@@ -340,6 +341,52 @@ class BudgetEngineTest {
     fun `fixed costs in another currency than the budget are rejected`() {
         assertThrows(IllegalArgumentException::class.java) {
             budget(cash = 100, fixedCosts = Money(500, euro))
+        }
+    }
+
+    @Test
+    fun `only the next installment of a new installment purchase is set aside`() {
+        // A 6000 lira phone in 6 installments, bought after the latest statement.
+        val phone = InstallmentPlan(lira(6000), count = 6, billedCount = 0)
+        val withPhone = card.copy(spentSinceStatement = zero, installmentPlans = listOf(phone))
+        val result = budget(cash = 4800, cards = listOf(withPhone)).calculated()
+        val debt = result.cardDebts.single()
+
+        // 4800 - 1000 planned payment - 1000 first installment = 2800 over 16 days.
+        assertEquals(lira(1000), result.reserved.nextStatementCharges)
+        assertEquals(lira(175), result.dailyLimit)
+        assertEquals(lira(5000), debt.laterInstallments)
+        // 3000 on the statement + 1000 next installment + 5000 later installments.
+        assertEquals(lira(9000), debt.total)
+    }
+
+    @Test
+    fun `next installments of earlier purchases join the new spending`() {
+        // A 9000 lira laptop in 9 installments, 4 of them already billed.
+        val laptop = InstallmentPlan(lira(9000), count = 9, billedCount = 4)
+        val withLaptop = card.copy(installmentPlans = listOf(laptop))
+        val result = budget(cash = 4800, cards = listOf(withLaptop)).calculated()
+
+        // 200 new spending + 1000 for the fifth installment.
+        assertEquals(lira(1200), result.reserved.nextStatementCharges)
+        assertEquals(lira(4000), result.cardDebts.single().laterInstallments)
+    }
+
+    @Test
+    fun `fully billed installment plans add nothing`() {
+        val paidOff = InstallmentPlan(lira(3000), count = 3, billedCount = 3)
+        val withPaidOff = card.copy(installmentPlans = listOf(paidOff))
+        val result = budget(cash = 4800, cards = listOf(withPaidOff)).calculated()
+
+        assertEquals(lira(200), result.reserved.nextStatementCharges)
+        assertEquals(zero, result.cardDebts.single().laterInstallments)
+    }
+
+    @Test
+    fun `installment plans in another currency than the card are rejected`() {
+        val euroPlan = InstallmentPlan(Money(60000, euro), count = 6, billedCount = 0)
+        assertThrows(IllegalArgumentException::class.java) {
+            card.copy(installmentPlans = listOf(euroPlan))
         }
     }
 }

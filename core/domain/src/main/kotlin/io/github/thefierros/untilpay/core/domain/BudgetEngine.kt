@@ -27,9 +27,9 @@ object BudgetEngine {
             cardPayments = budgetCards
                 .map { it.reservation(input.today, nextIncomeDate) }
                 .total(input.currency),
-            // New card spending is set aside immediately,
-            // so a card can't become an escape hatch from the daily limit.
-            newCardSpending = budgetCards.map { it.spentSinceStatement }.total(input.currency),
+            nextStatementCharges = budgetCards.map {
+                it.nextStatementCharges
+            }.total(input.currency),
             fixedCosts = input.fixedCosts,
             protectedAmount = input.protectedAmount,
         )
@@ -89,10 +89,11 @@ object BudgetEngine {
         val effectivePayment = maxOf(plannedPayment, paidSoFar)
         return CardDebt(
             cardId = card.id,
-            total = statementBalance - paidSoFar + spentSinceStatement,
+            total = statementBalance - paidSoFar + nextStatementCharges + laterInstallments,
             deferred = (statementBalance - effectivePayment).coerceAtLeast(zero),
             belowMinimum = effectivePayment < minimumPayment,
             overdue = overdueAmount(today),
+            laterInstallments = laterInstallments,
         )
     }
 
