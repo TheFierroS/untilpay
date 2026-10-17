@@ -29,6 +29,11 @@ gradlePlugin {
             implementationClass =
                 "io.github.thefierros.untilpay.buildlogic.AndroidApplicationConventionPlugin"
         }
+        register("androidLibrary") {
+            id = libs.plugins.untilpay.android.library.get().pluginId
+            implementationClass =
+                "io.github.thefierros.untilpay.buildlogic.AndroidLibraryConventionPlugin"
+        }
         register("jvmLibrary") {
             id = libs.plugins.untilpay.jvm.library.get().pluginId
             implementationClass =
