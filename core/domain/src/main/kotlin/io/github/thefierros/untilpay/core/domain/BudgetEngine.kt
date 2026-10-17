@@ -5,93 +5,6 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.util.Currency
 
-/** Credit card state for the current statement period. All amounts share one currency. */
-data class CardState(
-    /** Debt shown on the latest statement. */
-    val statementBalance: Money,
-    /** Minimum payment shown on the latest statement. */
-    val minimumPayment: Money,
-    /** What the user plans to pay toward the latest statement. */
-    val plannedPayment: Money,
-    /** What has already been paid toward the latest statement. */
-    val paidSoFar: Money,
-    /** Payment due date of the latest statement. */
-    val dueDate: LocalDate,
-    /** Card spending made after the latest statement was cut. */
-    val spentSinceStatement: Money,
-) {
-    /** The currency every amount of this card is in. */
-    val currency: Currency get() = statementBalance.currency
-
-    init {
-        for (amount in listOf(minimumPayment, plannedPayment, paidSoFar, spentSinceStatement)) {
-            requireCurrency(amount, currency, "Card amounts")
-        }
-        requireNotNegative(statementBalance, "statementBalance")
-        requireNotNegative(minimumPayment, "minimumPayment")
-        requireNotNegative(plannedPayment, "plannedPayment")
-        requireNotNegative(paidSoFar, "paidSoFar")
-        requireNotNegative(spentSinceStatement, "spentSinceStatement")
-        require(minimumPayment <= statementBalance) {
-            "minimumPayment ($minimumPayment) cannot exceed statementBalance ($statementBalance)"
-        }
-    }
-}
-
-data class BudgetInput(
-    val today: LocalDate,
-    val nextIncomeDate: LocalDate,
-    /** Cash on hand, in the budget currency. May be negative when overdrawn. */
-    val cash: Money,
-    val card: CardState? = null,
-    /** Fixed costs (subscriptions, transit, ...) due before the next income. */
-    val fixedBeforeIncome: Money = Money.zero(cash.currency),
-) {
-    /** The budget currency: every amount in the input must be in it. */
-    val currency: Currency get() = cash.currency
-
-    init {
-        requireCurrency(fixedBeforeIncome, currency, "fixedBeforeIncome")
-        if (card != null) requireCurrency(card.statementBalance, currency, "The card")
-        requireNotNegative(fixedBeforeIncome, "fixedBeforeIncome")
-    }
-}
-
-data class Reserved(val cardPayment: Money, val newCardSpending: Money, val fixed: Money)
-
-data class DebtSummary(
-    val total: Money,
-    val deferred: Money,
-    val belowMinimum: Boolean,
-    /** Unpaid part of the minimum payment once the due date has passed. */
-    val overdue: Money,
-) {
-    val isOverdue: Boolean get() = overdue.isPositive
-}
-
-data class BudgetResult(
-    /** Always at least 1: today counts as a day to spend. */
-    val daysLeft: Long,
-    val reserved: Reserved,
-    val spendable: Money,
-    val dailyLimit: Money,
-    val debt: DebtSummary?,
-)
-
-/** What the budget engine can tell about the user's situation. */
-sealed interface BudgetOutcome {
-
-    /** A daily limit was calculated for the days left until the next income. */
-    data class Calculated(val result: BudgetResult) : BudgetOutcome
-
-    /**
-     * The next income date is today or already in the past, so there is no
-     * period left to budget for. The user has to confirm the income and set
-     * the following income date before a new limit can be calculated.
-     */
-    data class NextIncomeDateReached(val nextIncomeDate: LocalDate) : BudgetOutcome
-}
-
 /**
  * Turns the user's money situation into a single daily spending limit.
  *
@@ -101,33 +14,51 @@ sealed interface BudgetOutcome {
 object BudgetEngine {
 
     fun calculate(input: BudgetInput): BudgetOutcome {
-        if (!input.nextIncomeDate.isAfter(input.today)) {
-            return BudgetOutcome.NextIncomeDateReached(input.nextIncomeDate)
-        }
+        val nextIncomeDate = nextIncomeDate(input) ?: return BudgetOutcome.NoUpcomingIncome
 
-        val daysLeft = ChronoUnit.DAYS.between(input.today, input.nextIncomeDate)
-        val zero = Money.zero(input.currency)
-        val card = input.card
+        val (budgetAccounts, foreignAccounts) = input.accounts
+            .filter { it.account.includeInBudget }
+            .partition { it.account.currency == input.currency }
+        val (budgetCards, foreignCards) = input.cards
+            .partition { it.card.currency == input.currency }
 
-        val cardPayment = card?.reservation(input.today, input.nextIncomeDate) ?: zero
-
-        // New card spending is set aside immediately,
-        // so the card can't become an escape hatch from the daily limit.
-        val newCardSpending = card?.spentSinceStatement ?: zero
-
-        val spendable = input.cash - cardPayment - newCardSpending - input.fixedBeforeIncome
-        val dailyLimit = (spendable / daysLeft).coerceAtLeast(zero)
+        val cash = budgetAccounts.map { it.balance }.total(input.currency)
+        val reserved = Reserved(
+            cardPayments = budgetCards
+                .map { it.reservation(input.today, nextIncomeDate) }
+                .total(input.currency),
+            // New card spending is set aside immediately,
+            // so a card can't become an escape hatch from the daily limit.
+            newCardSpending = budgetCards.map { it.spentSinceStatement }.total(input.currency),
+            fixedCosts = input.fixedCosts,
+            protectedAmount = input.protectedAmount,
+        )
+        val spendable = cash - reserved.total
+        val daysLeft = ChronoUnit.DAYS.between(input.today, nextIncomeDate)
+        val dailyLimit = (spendable / daysLeft).coerceAtLeast(Money.zero(input.currency))
 
         return BudgetOutcome.Calculated(
             BudgetResult(
+                nextIncomeDate = nextIncomeDate,
                 daysLeft = daysLeft,
-                reserved = Reserved(cardPayment, newCardSpending, input.fixedBeforeIncome),
+                reserved = reserved,
                 spendable = spendable,
                 dailyLimit = dailyLimit,
-                debt = card?.toDebtSummary(input.today),
+                cardDebts = budgetCards.map { it.debt(input.today) },
+                excludedAccounts = foreignAccounts.map { it.account.id },
+                excludedCards = foreignCards.map { it.card.id },
             ),
         )
     }
+
+    /**
+     * The earliest upcoming income in the budget currency. Income in another
+     * currency does not refill the budget, so it does not end the period.
+     */
+    private fun nextIncomeDate(input: BudgetInput): LocalDate? = input.incomeSources
+        .filter { it.expectedAmount.currency == input.currency }
+        .mapNotNull { it.schedule.nextAfter(input.today) }
+        .minOrNull()
 
     /**
      * How much of the current cash has to be set aside for the card.
@@ -139,7 +70,7 @@ object BudgetEngine {
      * - Due after the next income: nothing yet; the next income will cover it.
      */
     private fun CardState.reservation(today: LocalDate, nextIncome: LocalDate): Money {
-        val zero = Money.zero(currency)
+        val zero = Money.zero(card.currency)
         return when {
             dueDate.isBefore(today) -> overdueAmount(today)
             dueDate.isBefore(nextIncome) -> (plannedPayment - paidSoFar).coerceAtLeast(zero)
@@ -148,28 +79,23 @@ object BudgetEngine {
     }
 
     private fun CardState.overdueAmount(today: LocalDate): Money {
-        val zero = Money.zero(currency)
+        val zero = Money.zero(card.currency)
         if (!dueDate.isBefore(today)) return zero
         return (minimumPayment - paidSoFar).coerceAtLeast(zero)
     }
 
-    private fun CardState.toDebtSummary(today: LocalDate): DebtSummary {
+    private fun CardState.debt(today: LocalDate): CardDebt {
+        val zero = Money.zero(card.currency)
         val effectivePayment = maxOf(plannedPayment, paidSoFar)
-        return DebtSummary(
+        return CardDebt(
+            cardId = card.id,
             total = statementBalance - paidSoFar + spentSinceStatement,
-            deferred = (statementBalance - effectivePayment).coerceAtLeast(Money.zero(currency)),
+            deferred = (statementBalance - effectivePayment).coerceAtLeast(zero),
             belowMinimum = effectivePayment < minimumPayment,
             overdue = overdueAmount(today),
         )
     }
-}
 
-private fun requireCurrency(amount: Money, expected: Currency, name: String) {
-    require(amount.currency == expected) {
-        "$name must be in ${expected.currencyCode}, got ${amount.currency.currencyCode}"
-    }
-}
-
-private fun requireNotNegative(amount: Money, name: String) {
-    require(!amount.isNegative) { "$name must not be negative, got $amount" }
+    private fun List<Money>.total(currency: Currency): Money =
+        fold(Money.zero(currency)) { sum, amount -> sum + amount }
 }
