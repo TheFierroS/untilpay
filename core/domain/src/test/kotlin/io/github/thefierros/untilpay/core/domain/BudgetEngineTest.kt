@@ -1,5 +1,6 @@
-package io.github.thefierros.untilpay.core
+package io.github.thefierros.untilpay.core.domain
 
+import io.github.thefierros.untilpay.core.model.Money
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
