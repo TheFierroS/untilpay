@@ -15,6 +15,8 @@ import io.github.thefierros.untilpay.core.data.repository.RoomBudgetRepository
 import io.github.thefierros.untilpay.core.data.repository.RoomCardRepository
 import io.github.thefierros.untilpay.core.data.repository.RoomCategoryRepository
 import io.github.thefierros.untilpay.core.data.repository.RoomIncomeRepository
+import io.github.thefierros.untilpay.core.data.repository.RoomTransactionRepository
+import io.github.thefierros.untilpay.core.data.repository.TransactionRepository
 import java.time.Clock
 
 @Module
@@ -42,4 +44,9 @@ internal abstract class DataModule {
 
     @Binds
     abstract fun bindCategoryRepository(repository: RoomCategoryRepository): CategoryRepository
+
+    @Binds
+    abstract fun bindTransactionRepository(
+        repository: RoomTransactionRepository,
+    ): TransactionRepository
 }
