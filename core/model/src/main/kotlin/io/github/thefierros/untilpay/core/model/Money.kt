@@ -1,5 +1,6 @@
 package io.github.thefierros.untilpay.core.model
 
+import java.math.BigDecimal
 import java.util.Currency
 
 /**
@@ -17,9 +18,7 @@ import java.util.Currency
 data class Money(val minorUnits: Long, val currency: Currency) : Comparable<Money> {
 
     init {
-        require(currency.defaultFractionDigits >= 0) {
-            "${currency.currencyCode} has no fixed minor units and cannot be used as money"
-        }
+        requireFixedMinorUnits(currency)
     }
 
     val isPositive: Boolean get() = minorUnits > 0
@@ -52,6 +51,9 @@ data class Money(val minorUnits: Long, val currency: Currency) : Comparable<Mone
         return minorUnits.compareTo(other.minorUnits)
     }
 
+    /** The amount as a decimal number in major units, for example 15.50 for 1550 kuruş. */
+    fun toBigDecimal(): BigDecimal = BigDecimal.valueOf(minorUnits, currency.defaultFractionDigits)
+
     private fun requireSameCurrency(other: Money) {
         require(currency == other.currency) {
             "Cannot combine ${currency.currencyCode} with ${other.currency.currencyCode}"
@@ -60,5 +62,29 @@ data class Money(val minorUnits: Long, val currency: Currency) : Comparable<Mone
 
     companion object {
         fun zero(currency: Currency) = Money(0, currency)
+
+        /**
+         * Creates money from a decimal amount in major units, such as 15.50.
+         *
+         * Never rounds: an amount with more decimal places than the currency
+         * allows, such as 15.505 TRY, is rejected instead of being cut short.
+         *
+         * @throws IllegalArgumentException if [amount] has too many decimal places.
+         * @throws ArithmeticException if [amount] is too large to represent.
+         */
+        fun of(amount: BigDecimal, currency: Currency): Money {
+            requireFixedMinorUnits(currency)
+            val digits = currency.defaultFractionDigits
+            require(amount.stripTrailingZeros().scale() <= digits) {
+                "$amount has more decimal places than ${currency.currencyCode} allows ($digits)"
+            }
+            return Money(amount.movePointRight(digits).longValueExact(), currency)
+        }
+
+        private fun requireFixedMinorUnits(currency: Currency) {
+            require(currency.defaultFractionDigits >= 0) {
+                "${currency.currencyCode} has no fixed minor units and cannot be used as money"
+            }
+        }
     }
 }
