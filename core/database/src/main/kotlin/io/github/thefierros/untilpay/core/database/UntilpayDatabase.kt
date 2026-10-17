@@ -8,12 +8,14 @@ import io.github.thefierros.untilpay.core.database.dao.CardStatementDao
 import io.github.thefierros.untilpay.core.database.dao.CategoryDao
 import io.github.thefierros.untilpay.core.database.dao.CreditCardDao
 import io.github.thefierros.untilpay.core.database.dao.IncomeSourceDao
+import io.github.thefierros.untilpay.core.database.dao.TransactionDao
 import io.github.thefierros.untilpay.core.database.model.AccountEntity
 import io.github.thefierros.untilpay.core.database.model.BalanceSnapshotEntity
 import io.github.thefierros.untilpay.core.database.model.CardStatementEntity
 import io.github.thefierros.untilpay.core.database.model.CategoryEntity
 import io.github.thefierros.untilpay.core.database.model.CreditCardEntity
 import io.github.thefierros.untilpay.core.database.model.IncomeSourceEntity
+import io.github.thefierros.untilpay.core.database.model.TransactionEntity
 
 /**
  * The app's database.
@@ -29,6 +31,7 @@ import io.github.thefierros.untilpay.core.database.model.IncomeSourceEntity
         CardStatementEntity::class,
         IncomeSourceEntity::class,
         CategoryEntity::class,
+        TransactionEntity::class,
     ],
     version = 1,
     exportSchema = true,
@@ -46,4 +49,6 @@ abstract class UntilpayDatabase : RoomDatabase() {
     abstract fun incomeSourceDao(): IncomeSourceDao
 
     abstract fun categoryDao(): CategoryDao
+
+    abstract fun transactionDao(): TransactionDao
 }
