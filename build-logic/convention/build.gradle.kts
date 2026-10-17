@@ -20,6 +20,7 @@ kotlin {
 dependencies {
     compileOnly(libs.android.gradlePlugin)
     compileOnly(libs.kotlin.gradlePlugin)
+    compileOnly(libs.room.gradlePlugin)
 }
 
 gradlePlugin {
@@ -33,6 +34,11 @@ gradlePlugin {
             id = libs.plugins.untilpay.android.library.get().pluginId
             implementationClass =
                 "io.github.thefierros.untilpay.buildlogic.AndroidLibraryConventionPlugin"
+        }
+        register("androidRoom") {
+            id = libs.plugins.untilpay.android.room.get().pluginId
+            implementationClass =
+                "io.github.thefierros.untilpay.buildlogic.AndroidRoomConventionPlugin"
         }
         register("jvmLibrary") {
             id = libs.plugins.untilpay.jvm.library.get().pluginId
