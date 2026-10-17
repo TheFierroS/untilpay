@@ -1,4 +1,4 @@
-package io.github.thefierros.untilpay.core
+package io.github.thefierros.untilpay.core.model
 
 /**
  * An amount of money in kuruş (1/100 of a lira).

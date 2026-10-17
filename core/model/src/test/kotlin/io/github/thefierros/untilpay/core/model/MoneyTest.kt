@@ -1,4 +1,4 @@
-package io.github.thefierros.untilpay.core
+package io.github.thefierros.untilpay.core.model
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
