@@ -15,3 +15,7 @@ value class IncomeSourceId(val value: Long)
 /** Identifies a card statement. */
 @JvmInline
 value class StatementId(val value: Long)
+
+/** Identifies a spending category. */
+@JvmInline
+value class CategoryId(val value: Long)
