@@ -44,4 +44,8 @@ interface CardStatementDao {
         """,
     )
     fun observeLatestPerCard(): Flow<List<CardStatementEntity>>
+
+    /** Every statement of a card, oldest first. */
+    @Query("SELECT * FROM card_statements WHERE card_id = :cardId ORDER BY closing_date")
+    fun observeForCard(cardId: Long): Flow<List<CardStatementEntity>>
 }

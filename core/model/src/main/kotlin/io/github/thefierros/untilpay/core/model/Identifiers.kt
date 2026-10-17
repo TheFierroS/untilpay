@@ -11,3 +11,15 @@ value class CardId(val value: Long)
 /** Identifies a recurring source of income, such as a monthly allowance. */
 @JvmInline
 value class IncomeSourceId(val value: Long)
+
+/** Identifies a card statement. */
+@JvmInline
+value class StatementId(val value: Long)
+
+/** Identifies a spending category. */
+@JvmInline
+value class CategoryId(val value: Long)
+
+/** Identifies a transaction. */
+@JvmInline
+value class TransactionId(val value: Long)

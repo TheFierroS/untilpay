@@ -128,4 +128,17 @@ class CardStatementDaoTest {
             error is SQLiteConstraintException,
         )
     }
+
+    @Test
+    fun `a card's statements are listed oldest first without other cards' statements`() = runTest {
+        val card = insertCard("Bankkart")
+        val other = insertCard("Other")
+        dao.insert(statement(card, closedOn = day(10, 15), balanceMinor = 2_000_00))
+        dao.insert(statement(other, closedOn = day(9, 1), balanceMinor = 500_00))
+        dao.insert(statement(card, closedOn = day(9, 15), balanceMinor = 1_000_00))
+
+        val closings = dao.observeForCard(card).first().map { it.closingDate }
+
+        assertEquals(listOf(day(9, 15), day(10, 15)), closings)
+    }
 }
