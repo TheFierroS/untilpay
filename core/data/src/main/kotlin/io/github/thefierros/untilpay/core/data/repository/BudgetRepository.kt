@@ -1,6 +1,7 @@
 package io.github.thefierros.untilpay.core.data.repository
 
 import io.github.thefierros.untilpay.core.domain.BudgetInput
+import io.github.thefierros.untilpay.core.model.FixedCost
 import io.github.thefierros.untilpay.core.model.Money
 import java.util.Currency
 import kotlinx.coroutines.flow.Flow
@@ -16,14 +17,14 @@ interface BudgetRepository {
     /** Everything the budget engine needs for today. */
     suspend fun loadInput(
         currency: Currency,
-        fixedCosts: Money,
+        fixedCosts: List<FixedCost>,
         protectedAmount: Money,
     ): BudgetInput
 
     /** The same input, read again after every change to the user's money. */
     fun observeInput(
         currency: Currency,
-        fixedCosts: Money,
+        fixedCosts: List<FixedCost>,
         protectedAmount: Money,
     ): Flow<BudgetInput>
 }

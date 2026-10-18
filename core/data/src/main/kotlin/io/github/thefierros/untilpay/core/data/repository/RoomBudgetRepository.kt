@@ -18,6 +18,7 @@ import io.github.thefierros.untilpay.core.domain.CardState
 import io.github.thefierros.untilpay.core.model.Account
 import io.github.thefierros.untilpay.core.model.AccountId
 import io.github.thefierros.untilpay.core.model.CreditCard
+import io.github.thefierros.untilpay.core.model.FixedCost
 import io.github.thefierros.untilpay.core.model.IncomeSchedule
 import io.github.thefierros.untilpay.core.model.Money
 import java.time.Clock
@@ -41,7 +42,7 @@ internal class RoomBudgetRepository @Inject constructor(
 
     override suspend fun loadInput(
         currency: Currency,
-        fixedCosts: Money,
+        fixedCosts: List<FixedCost>,
         protectedAmount: Money,
     ): BudgetInput {
         val today = LocalDate.now(clock)
@@ -67,7 +68,7 @@ internal class RoomBudgetRepository @Inject constructor(
 
     override fun observeInput(
         currency: Currency,
-        fixedCosts: Money,
+        fixedCosts: List<FixedCost>,
         protectedAmount: Money,
     ): Flow<BudgetInput> = tableChanges.observe(*BUDGET_TABLES)
         .map { loadInput(currency, fixedCosts, protectedAmount) }

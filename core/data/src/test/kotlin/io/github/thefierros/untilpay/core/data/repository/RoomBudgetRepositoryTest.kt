@@ -70,7 +70,7 @@ class RoomBudgetRepositoryTest {
     private fun october(dayOfMonth: Int) = LocalDate.of(2026, 10, dayOfMonth)
 
     private suspend fun load() =
-        repository.loadInput(lira, fixedCosts = tl(0), protectedAmount = tl(0))
+        repository.loadInput(lira, fixedCosts = emptyList(), protectedAmount = tl(0))
 
     private suspend fun account(name: String, type: String = "BANK"): Long =
         database.accountDao().insert(
@@ -286,7 +286,7 @@ class RoomBudgetRepositoryTest {
     fun `the budget input is read again when the money changes`() = runTest {
         val inputs = Channel<BudgetInput>(Channel.UNLIMITED)
         val collector = launch {
-            repository.observeInput(lira, fixedCosts = tl(0), protectedAmount = tl(0))
+            repository.observeInput(lira, fixedCosts = emptyList(), protectedAmount = tl(0))
                 .collect { inputs.send(it) }
         }
         assertEquals(emptyList<Any>(), inputs.receive().accounts)
