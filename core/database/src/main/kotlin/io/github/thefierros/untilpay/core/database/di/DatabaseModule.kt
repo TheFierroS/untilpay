@@ -13,6 +13,7 @@ import io.github.thefierros.untilpay.core.database.dao.BalanceSnapshotDao
 import io.github.thefierros.untilpay.core.database.dao.CardStatementDao
 import io.github.thefierros.untilpay.core.database.dao.CategoryDao
 import io.github.thefierros.untilpay.core.database.dao.CreditCardDao
+import io.github.thefierros.untilpay.core.database.dao.FixedCostDao
 import io.github.thefierros.untilpay.core.database.dao.IncomeSourceDao
 import io.github.thefierros.untilpay.core.database.dao.TransactionDao
 import javax.inject.Singleton
@@ -58,4 +59,7 @@ internal object DatabaseModule {
     @Provides
     fun provideTransactionDao(database: UntilpayDatabase): TransactionDao =
         database.transactionDao()
+
+    @Provides
+    fun provideFixedCostDao(database: UntilpayDatabase): FixedCostDao = database.fixedCostDao()
 }
