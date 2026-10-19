@@ -1,5 +1,6 @@
 package io.github.thefierros.untilpay.core.data.repository
 
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -9,23 +10,34 @@ import io.github.thefierros.untilpay.core.database.model.AccountEntity
 import io.github.thefierros.untilpay.core.database.model.BalanceSnapshotEntity
 import io.github.thefierros.untilpay.core.database.model.CardStatementEntity
 import io.github.thefierros.untilpay.core.database.model.CreditCardEntity
+import io.github.thefierros.untilpay.core.database.model.FixedCostEntity
 import io.github.thefierros.untilpay.core.database.model.IncomeSourceEntity
 import io.github.thefierros.untilpay.core.database.model.TransactionEntity
+import io.github.thefierros.untilpay.core.datastore.BudgetSettingsDataSource
 import io.github.thefierros.untilpay.core.domain.BudgetInput
 import io.github.thefierros.untilpay.core.domain.InstallmentPlan
+import io.github.thefierros.untilpay.core.model.FixedCost
+import io.github.thefierros.untilpay.core.model.FixedCostId
 import io.github.thefierros.untilpay.core.model.IncomeSchedule
 import io.github.thefierros.untilpay.core.model.Money
+import java.io.File
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Currency
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
@@ -38,12 +50,24 @@ class RoomBudgetRepositoryTest {
     private lateinit var database: UntilpayDatabase
     private lateinit var repository: RoomBudgetRepository
 
+    @get:Rule
+    val folder = TemporaryFolder()
+
+    private val dataStoreScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private lateinit var settings: BudgetSettingsDataSource
+
     @Before
     fun createDatabase() {
         database = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(),
             UntilpayDatabase::class.java,
         ).build()
+        settings = BudgetSettingsDataSource(
+            PreferenceDataStoreFactory.create(
+                scope = dataStoreScope,
+                produceFile = { File(folder.root, "settings.preferences_pb") },
+            ),
+        )
         repository = RoomBudgetRepository(
             accountDao = database.accountDao(),
             balanceSnapshotDao = database.balanceSnapshotDao(),
@@ -51,7 +75,9 @@ class RoomBudgetRepositoryTest {
             cardStatementDao = database.cardStatementDao(),
             incomeSourceDao = database.incomeSourceDao(),
             transactionDao = database.transactionDao(),
+            fixedCostDao = database.fixedCostDao(),
             tableChanges = TableChanges(database),
+            settingsDataSource = settings,
             clock = Clock.fixed(today.atTime(12, 0).atZone(zone).toInstant(), zone),
         )
     }
@@ -59,6 +85,7 @@ class RoomBudgetRepositoryTest {
     @After
     fun closeDatabase() {
         database.close()
+        dataStoreScope.cancel()
     }
 
     private fun tl(minorUnits: Long) = Money(minorUnits, lira)
@@ -69,8 +96,7 @@ class RoomBudgetRepositoryTest {
 
     private fun october(dayOfMonth: Int) = LocalDate.of(2026, 10, dayOfMonth)
 
-    private suspend fun load() =
-        repository.loadInput(lira, fixedCosts = emptyList(), protectedAmount = tl(0))
+    private suspend fun load() = repository.loadInput()
 
     private suspend fun account(name: String, type: String = "BANK"): Long =
         database.accountDao().insert(
@@ -286,7 +312,7 @@ class RoomBudgetRepositoryTest {
     fun `the budget input is read again when the money changes`() = runTest {
         val inputs = Channel<BudgetInput>(Channel.UNLIMITED)
         val collector = launch {
-            repository.observeInput(lira, fixedCosts = emptyList(), protectedAmount = tl(0))
+            repository.observeInput()
                 .collect { inputs.send(it) }
         }
         assertEquals(emptyList<Any>(), inputs.receive().accounts)
@@ -309,5 +335,52 @@ class RoomBudgetRepositoryTest {
             val input = receive()
             if (condition(input)) return input
         }
+    }
+
+    @Test
+    fun `fixed costs in the budget currency come from the database`() = runTest {
+        val dao = database.fixedCostDao()
+        val phone = dao.insert(
+            FixedCostEntity(
+                name = "Phone",
+                amountMinor = 300_00,
+                currencyCode = "TRY",
+                dayOfMonth = 20,
+                createdAt = 1_000,
+            ),
+        )
+        dao.insert(
+            FixedCostEntity(
+                name = "Euro gym",
+                amountMinor = 40_00,
+                currencyCode = "EUR",
+                dayOfMonth = 20,
+                createdAt = 1_000,
+            ),
+        )
+
+        assertEquals(
+            listOf(FixedCost(FixedCostId(phone), "Phone", tl(300_00), dayOfMonth = 20)),
+            load().fixedCosts,
+        )
+    }
+
+    @Test
+    fun `the protected amount comes from the settings`() = runTest {
+        settings.setProtectedAmount(tl(500_00))
+
+        assertEquals(tl(500_00), load().protectedAmount)
+    }
+
+    @Test
+    fun `the budget input is read again when the settings change`() = runTest {
+        val inputs = Channel<BudgetInput>(Channel.UNLIMITED)
+        val collector = launch { repository.observeInput().collect { inputs.send(it) } }
+        assertEquals(tl(0), inputs.receive().protectedAmount)
+
+        settings.setProtectedAmount(tl(500_00))
+
+        inputs.receiveUntil { it.protectedAmount == tl(500_00) }
+        collector.cancel()
     }
 }

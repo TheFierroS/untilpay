@@ -19,4 +19,5 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.room.runtime)
+    testImplementation(libs.androidx.datastore.preferences)
 }
