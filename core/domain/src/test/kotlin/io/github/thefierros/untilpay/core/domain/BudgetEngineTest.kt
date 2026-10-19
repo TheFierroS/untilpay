@@ -5,6 +5,8 @@ import io.github.thefierros.untilpay.core.model.AccountId
 import io.github.thefierros.untilpay.core.model.AccountType
 import io.github.thefierros.untilpay.core.model.CardId
 import io.github.thefierros.untilpay.core.model.CreditCard
+import io.github.thefierros.untilpay.core.model.FixedCost
+import io.github.thefierros.untilpay.core.model.FixedCostId
 import io.github.thefierros.untilpay.core.model.IncomeSchedule
 import io.github.thefierros.untilpay.core.model.IncomeSource
 import io.github.thefierros.untilpay.core.model.IncomeSourceId
@@ -63,7 +65,7 @@ class BudgetEngineTest {
         cash: Long,
         cards: List<CardState> = emptyList(),
         today: LocalDate = this.today,
-        fixedCosts: Money = zero,
+        fixedCosts: List<FixedCost> = emptyList(),
         protectedAmount: Money = zero,
     ) = BudgetInput(
         today = today,
@@ -81,6 +83,9 @@ class BudgetEngineTest {
         check(outcome is BudgetOutcome.Calculated) { "Expected a calculated budget, got $outcome" }
         return outcome.result
     }
+
+    private fun fixedCost(amount: Long, dayOfMonth: Int) =
+        FixedCost(FixedCostId(dayOfMonth.toLong()), "Cost $dayOfMonth", lira(amount), dayOfMonth)
 
     @Test
     fun `without a card, cash is split across the days until the next income`() {
@@ -141,7 +146,10 @@ class BudgetEngineTest {
 
     @Test
     fun `daily limit never goes negative`() {
-        val result = budget(cash = 100, fixedCosts = lira(500)).calculated()
+        val result = budget(
+            cash = 100,
+            fixedCosts = listOf(fixedCost(500, dayOfMonth = 20)),
+        ).calculated()
 
         assertEquals(lira(-400), result.spendable)
         assertEquals(zero, result.dailyLimit)
@@ -313,10 +321,7 @@ class BudgetEngineTest {
     }
 
     @Test
-    fun `negative fixed costs and protected money are rejected`() {
-        assertThrows(IllegalArgumentException::class.java) {
-            budget(cash = 100, fixedCosts = lira(-5))
-        }
+    fun `negative protected money is rejected`() {
         assertThrows(IllegalArgumentException::class.java) {
             budget(cash = 100, protectedAmount = lira(-5))
         }
@@ -339,8 +344,9 @@ class BudgetEngineTest {
 
     @Test
     fun `fixed costs in another currency than the budget are rejected`() {
+        val euroRent = FixedCost(FixedCostId(1), "Rent", Money(500, euro), dayOfMonth = 20)
         assertThrows(IllegalArgumentException::class.java) {
-            budget(cash = 100, fixedCosts = Money(500, euro))
+            budget(cash = 100, fixedCosts = listOf(euroRent))
         }
     }
 
@@ -388,5 +394,39 @@ class BudgetEngineTest {
         assertThrows(IllegalArgumentException::class.java) {
             card.copy(installmentPlans = listOf(euroPlan))
         }
+    }
+
+    @Test
+    fun `only fixed costs due from today until the next income are set aside`() {
+        // Due 20 October: set aside. Paid on 10 October: already out of the balance.
+        // Due 1 November, payday: paid from the new income.
+        val costs = listOf(
+            fixedCost(300, dayOfMonth = 20),
+            fixedCost(200, dayOfMonth = 10),
+            fixedCost(400, dayOfMonth = 1),
+        )
+        val result = budget(cash = 4800, fixedCosts = costs).calculated()
+
+        assertEquals(lira(300), result.reserved.fixedCosts)
+        // 4800 - 300 = 4500 over 16 days.
+        assertEquals(Money(281_25, turkishLira), result.dailyLimit)
+    }
+
+    @Test
+    fun `a fixed cost due today is set aside`() {
+        val dueDay = LocalDate.of(2026, 10, 20)
+        val input = budget(cash = 4800, today = dueDay, fixedCosts = listOf(fixedCost(300, 20)))
+
+        assertEquals(lira(300), input.calculated().reserved.fixedCosts)
+    }
+
+    @Test
+    fun `a fixed cost is set aside for every month until a distant income`() {
+        val farAway = allowance.copy(schedule = IncomeSchedule.Once(LocalDate.of(2026, 12, 25)))
+        val input = budget(cash = 4800, fixedCosts = listOf(fixedCost(300, dayOfMonth = 20)))
+            .copy(incomeSources = listOf(farAway))
+
+        // 20 October, 20 November and 20 December.
+        assertEquals(lira(900), input.calculated().reserved.fixedCosts)
     }
 }

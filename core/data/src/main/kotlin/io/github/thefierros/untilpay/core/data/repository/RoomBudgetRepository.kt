@@ -9,22 +9,25 @@ import io.github.thefierros.untilpay.core.database.dao.AccountDao
 import io.github.thefierros.untilpay.core.database.dao.BalanceSnapshotDao
 import io.github.thefierros.untilpay.core.database.dao.CardStatementDao
 import io.github.thefierros.untilpay.core.database.dao.CreditCardDao
+import io.github.thefierros.untilpay.core.database.dao.FixedCostDao
 import io.github.thefierros.untilpay.core.database.dao.IncomeSourceDao
 import io.github.thefierros.untilpay.core.database.dao.TransactionDao
 import io.github.thefierros.untilpay.core.database.model.BalanceSnapshotEntity
+import io.github.thefierros.untilpay.core.datastore.BudgetSettingsDataSource
 import io.github.thefierros.untilpay.core.domain.AccountBalance
 import io.github.thefierros.untilpay.core.domain.BudgetInput
 import io.github.thefierros.untilpay.core.domain.CardState
 import io.github.thefierros.untilpay.core.model.Account
 import io.github.thefierros.untilpay.core.model.AccountId
+import io.github.thefierros.untilpay.core.model.BudgetSettings
 import io.github.thefierros.untilpay.core.model.CreditCard
 import io.github.thefierros.untilpay.core.model.IncomeSchedule
 import io.github.thefierros.untilpay.core.model.Money
 import java.time.Clock
 import java.time.LocalDate
-import java.util.Currency
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -35,15 +38,21 @@ internal class RoomBudgetRepository @Inject constructor(
     private val cardStatementDao: CardStatementDao,
     private val incomeSourceDao: IncomeSourceDao,
     private val transactionDao: TransactionDao,
+    private val fixedCostDao: FixedCostDao,
     private val tableChanges: TableChanges,
+    private val settingsDataSource: BudgetSettingsDataSource,
     private val clock: Clock,
 ) : BudgetRepository {
 
-    override suspend fun loadInput(
-        currency: Currency,
-        fixedCosts: Money,
-        protectedAmount: Money,
-    ): BudgetInput {
+    override suspend fun loadInput(): BudgetInput = load(settingsDataSource.settings.first())
+
+    override fun observeInput(): Flow<BudgetInput> = combine(
+        settingsDataSource.settings,
+        tableChanges.observe(*BUDGET_TABLES),
+    ) { settings, _ -> settings }
+        .map { settings -> load(settings) }
+
+    private suspend fun load(settings: BudgetSettings): BudgetInput {
         val today = LocalDate.now(clock)
         val accounts = accountDao.observeActive().first().map { it.asModel() }
         val snapshots = balanceSnapshotDao.observeLatestPerAccount().first()
@@ -53,24 +62,21 @@ internal class RoomBudgetRepository @Inject constructor(
             // An income paid into an archived account no longer counts.
             accountsById[AccountId(row.accountId)]?.let { account -> row.asModel(account.currency) }
         }
+        // Like accounts, fixed costs in another currency are left out until exchange rates exist.
+        val fixedCosts = fixedCostDao.observeActive().first()
+            .map { it.asModel() }
+            .filter { it.amount.currency == settings.currency }
 
         return BudgetInput(
             today = today,
-            currency = currency,
+            currency = settings.currency,
             accounts = accounts.map { AccountBalance(it, balanceOf(it, snapshots[it.id.value])) },
             cards = creditCardDao.observeActive().first().map { cardStateOf(it.asModel(), today) },
             incomeSources = incomeSources,
             fixedCosts = fixedCosts,
-            protectedAmount = protectedAmount,
+            protectedAmount = settings.protectedAmount,
         )
     }
-
-    override fun observeInput(
-        currency: Currency,
-        fixedCosts: Money,
-        protectedAmount: Money,
-    ): Flow<BudgetInput> = tableChanges.observe(*BUDGET_TABLES)
-        .map { loadInput(currency, fixedCosts, protectedAmount) }
 
     /** The latest snapshot plus everything that happened after it; zero if there is none. */
     private suspend fun balanceOf(account: Account, snapshot: BalanceSnapshotEntity?): Money {
@@ -134,6 +140,7 @@ internal class RoomBudgetRepository @Inject constructor(
             "card_statements",
             "income_sources",
             "transactions",
+            "fixed_costs",
         )
     }
 }

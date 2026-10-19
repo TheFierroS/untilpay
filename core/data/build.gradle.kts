@@ -11,6 +11,7 @@ dependencies {
     api(project(":core:model"))
     api(project(":core:domain"))
     implementation(project(":core:database"))
+    implementation(project(":core:datastore"))
 
     testImplementation(libs.junit)
     testImplementation(libs.androidx.junit)
@@ -18,4 +19,5 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.room.runtime)
+    testImplementation(libs.androidx.datastore.preferences)
 }

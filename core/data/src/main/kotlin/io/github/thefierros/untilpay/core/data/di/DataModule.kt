@@ -9,13 +9,17 @@ import io.github.thefierros.untilpay.core.data.repository.AccountRepository
 import io.github.thefierros.untilpay.core.data.repository.BudgetRepository
 import io.github.thefierros.untilpay.core.data.repository.CardRepository
 import io.github.thefierros.untilpay.core.data.repository.CategoryRepository
+import io.github.thefierros.untilpay.core.data.repository.DataStoreSettingsRepository
+import io.github.thefierros.untilpay.core.data.repository.FixedCostRepository
 import io.github.thefierros.untilpay.core.data.repository.IncomeRepository
 import io.github.thefierros.untilpay.core.data.repository.RoomAccountRepository
 import io.github.thefierros.untilpay.core.data.repository.RoomBudgetRepository
 import io.github.thefierros.untilpay.core.data.repository.RoomCardRepository
 import io.github.thefierros.untilpay.core.data.repository.RoomCategoryRepository
+import io.github.thefierros.untilpay.core.data.repository.RoomFixedCostRepository
 import io.github.thefierros.untilpay.core.data.repository.RoomIncomeRepository
 import io.github.thefierros.untilpay.core.data.repository.RoomTransactionRepository
+import io.github.thefierros.untilpay.core.data.repository.SettingsRepository
 import io.github.thefierros.untilpay.core.data.repository.TransactionRepository
 import java.time.Clock
 
@@ -49,4 +53,10 @@ internal abstract class DataModule {
     abstract fun bindTransactionRepository(
         repository: RoomTransactionRepository,
     ): TransactionRepository
+
+    @Binds
+    abstract fun bindFixedCostRepository(repository: RoomFixedCostRepository): FixedCostRepository
+
+    @Binds
+    abstract fun bindSettingsRepository(repository: DataStoreSettingsRepository): SettingsRepository
 }

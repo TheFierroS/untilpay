@@ -2,6 +2,7 @@ package io.github.thefierros.untilpay.core.domain
 
 import io.github.thefierros.untilpay.core.model.Account
 import io.github.thefierros.untilpay.core.model.CreditCard
+import io.github.thefierros.untilpay.core.model.FixedCost
 import io.github.thefierros.untilpay.core.model.IncomeSource
 import io.github.thefierros.untilpay.core.model.Money
 import java.time.LocalDate
@@ -78,15 +79,19 @@ data class BudgetInput(
     val accounts: List<AccountBalance>,
     val cards: List<CardState> = emptyList(),
     val incomeSources: List<IncomeSource>,
-    /** Fixed costs (subscriptions, transit, ...) due before the next income. */
-    val fixedCosts: Money = Money.zero(currency),
+    /**
+     * Costs paid on a set day every month. Every payment from today until the
+     * next income is set aside; earlier ones are already out of the balance.
+     */
+    val fixedCosts: List<FixedCost> = emptyList(),
     /** Money the user sets aside and never wants counted as spendable. */
     val protectedAmount: Money = Money.zero(currency),
 ) {
     init {
-        requireCurrency(fixedCosts, currency, "fixedCosts")
+        for (cost in fixedCosts) {
+            requireCurrency(cost.amount, currency, "Fixed cost ${cost.name}")
+        }
         requireCurrency(protectedAmount, currency, "protectedAmount")
-        requireNotNegative(fixedCosts, "fixedCosts")
         requireNotNegative(protectedAmount, "protectedAmount")
     }
 }

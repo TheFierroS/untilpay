@@ -30,7 +30,11 @@ object BudgetEngine {
             nextStatementCharges = budgetCards.map {
                 it.nextStatementCharges
             }.total(input.currency),
-            fixedCosts = input.fixedCosts,
+            fixedCosts = input.fixedCosts
+                .flatMap { cost ->
+                    cost.dueDatesBetween(input.today, nextIncomeDate).map { cost.amount }
+                }
+                .total(input.currency),
             protectedAmount = input.protectedAmount,
         )
         val spendable = cash - reserved.total

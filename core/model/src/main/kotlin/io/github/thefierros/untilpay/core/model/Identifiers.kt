@@ -23,3 +23,7 @@ value class CategoryId(val value: Long)
 /** Identifies a transaction. */
 @JvmInline
 value class TransactionId(val value: Long)
+
+/** Identifies a fixed cost. */
+@JvmInline
+value class FixedCostId(val value: Long)
