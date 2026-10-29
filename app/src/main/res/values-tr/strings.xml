@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="demo_spendable_today">bugün harcayabileceğin</string>
+    <string name="demo_add_expense">harcama ekle</string>
+    <plurals name="demo_days_until_income">
+        <item quantity="one">Sonraki gelire %d gün</item>
+        <item quantity="other">Sonraki gelire %d gün</item>
+    </plurals>
+
+    <string name="language_title">dil</string>
+    <string name="language_system">Sistem</string>
+</resources>

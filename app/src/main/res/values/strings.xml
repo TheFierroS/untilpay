@@ -1,3 +1,15 @@
 <resources>
-    <string name="app_name">Untilpay</string>
+    <string name="app_name" translatable="false">Untilpay</string>
+
+    <string name="demo_spendable_today">spendable today</string>
+    <string name="demo_add_expense">add expense</string>
+    <plurals name="demo_days_until_income">
+        <item quantity="one">%d day until your next income</item>
+        <item quantity="other">%d days until your next income</item>
+    </plurals>
+
+    <string name="language_title">language</string>
+    <string name="language_system">System</string>
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_turkish" translatable="false">Türkçe</string>
 </resources>
