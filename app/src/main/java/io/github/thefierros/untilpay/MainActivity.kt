@@ -20,6 +20,8 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dagger.hilt.android.AndroidEntryPoint
@@ -70,7 +72,7 @@ private fun DesignSystemDemo() {
         NeoCard(modifier = Modifier.fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 BasicText(
-                    text = "bugün harcayabileceğin".toDisplayText(locale),
+                    text = stringResource(R.string.demo_spendable_today).toDisplayText(locale),
                     style = type.title,
                 )
                 Box(
@@ -81,17 +83,21 @@ private fun DesignSystemDemo() {
                 ) {
                     BasicText(text = "42 ₺", style = type.number)
                 }
-                BasicText(text = "Sonraki gelire 25 gün", style = type.body)
+                BasicText(
+                    text = pluralStringResource(R.plurals.demo_days_until_income, 25, 25),
+                    style = type.body,
+                )
             }
         }
         NeoButton(
-            text = "harcama ekle",
+            text = stringResource(R.string.demo_add_expense),
             onClick = {},
             modifier = Modifier.fillMaxWidth(),
         )
     }
 }
 
+@Preview(locale = "en", name = "English")
 @Preview(locale = "tr")
 @Composable
 private fun DesignSystemDemoPreview() {
