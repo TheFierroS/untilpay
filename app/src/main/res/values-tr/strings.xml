@@ -6,4 +6,7 @@
         <item quantity="one">Sonraki gelire %d gün</item>
         <item quantity="other">Sonraki gelire %d gün</item>
     </plurals>
+
+    <string name="language_title">dil</string>
+    <string name="language_system">Sistem</string>
 </resources>

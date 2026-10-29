@@ -7,4 +7,9 @@
         <item quantity="one">%d day until your next income</item>
         <item quantity="other">%d days until your next income</item>
     </plurals>
+
+    <string name="language_title">language</string>
+    <string name="language_system">System</string>
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_turkish" translatable="false">Türkçe</string>
 </resources>

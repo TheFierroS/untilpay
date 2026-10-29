@@ -94,6 +94,11 @@ private fun DesignSystemDemo() {
             onClick = {},
             modifier = Modifier.fillMaxWidth(),
         )
+        BasicText(
+            text = stringResource(R.string.language_title).toDisplayText(locale),
+            style = type.title,
+        )
+        LanguagePicker(modifier = Modifier.fillMaxWidth())
     }
 }
 
