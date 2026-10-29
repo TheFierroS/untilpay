@@ -15,6 +15,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:configChanges="locale|layoutDirection"
             android:theme="@style/Theme.Untilpay"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
