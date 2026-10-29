@@ -2,10 +2,10 @@ package io.github.thefierros.untilpay
 
 import android.graphics.Color
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -29,7 +29,7 @@ import io.github.thefierros.untilpay.core.designsystem.UntilpayTheme
 import io.github.thefierros.untilpay.core.designsystem.toDisplayText
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Untilpay is always light, so the system bar icons stay dark.

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
 
-    <style name="Theme.Untilpay" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.Untilpay" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowBackground">#FFDD7DFF</item>
         <!-- Untilpay has one light theme; the system must not invert its colors. -->
         <item name="android:forceDarkAllowed" tools:targetApi="29">false</item>
